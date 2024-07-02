@@ -64,7 +64,6 @@ namespace SMB3TwitchBot
             lines[0] = $"local cmdPath = \"{LUA_COMMANDS_FULLPATH}\";";
 
             File.WriteAllLines($"{PROJECT_PATH}/{LUA_SCRIPT_PATH}", lines);
-
         }
 
         public static void StartBot()
@@ -84,7 +83,6 @@ namespace SMB3TwitchBot
             streamWriter.WriteLine($"NICK {botUsername}");
             streamWriter.WriteLine($"JOIN #{twitchChannelName}");
             streamWriter.WriteLine($"CAP REQ :twitch.tv/commands twitch.tv/tags");
-            // SendTwitchMessage("test message");
         }
 
         public static void SendTwitchMessage(string message)
@@ -98,9 +96,9 @@ namespace SMB3TwitchBot
 
         static void SendLuaCommand(string line)
         {
-            string[] lines = File.ReadAllLines($"{LUA_COMMANDS_FULLPATH}");
-            lines.Append(line);
-            File.WriteAllLines($"{LUA_COMMANDS_FULLPATH}", lines);
+            List<string> lines = File.ReadAllLines($"{LUA_COMMANDS_FULLPATH}").ToList();
+            lines.Add(line);
+            File.WriteAllLines($"{LUA_COMMANDS_FULLPATH}", lines.ToArray());
         }
 
         public static void SendLuaDisplayMessage(string userName, string line)
@@ -127,14 +125,20 @@ namespace SMB3TwitchBot
                         }
                         else
                         {
-                            string[] split = line.Split(':');
-                            string messageID = "";
+                            string[] split = line.Split(';');
+                            TwitchMessage message = new TwitchMessage();
                             try
                             {
-                                messageID = line.Split(";id=")[1].Split(";")[0];
+                                List<string> formattedSplit = new List<string>();
+                                for (int i=0; i<split.Length; i++)
+                                {
+                                    formattedSplit.Add(split[i].Trim().Split('=')[1]);
+                                }
+                                string msgText = formattedSplit[16].TrimStart().Split(" :")[1];
+                                formattedSplit[16] = formattedSplit[16].Split(":")[0];
+                                message = new TwitchMessage(formattedSplit.ToArray(), msgText);
                             }
                             catch { }
-
 
                             if (split.Length > 2)
                             {
@@ -143,7 +147,7 @@ namespace SMB3TwitchBot
 
                                 if (commands.ContainsKey(command[0]))
                                 {
-                                    commands[command[0]].ProcessOptions(messageID, command.Skip(1).ToArray());
+                                    commands[command[0]].ProcessOptions(message);
                                 }
                             }
                         }
@@ -184,36 +188,84 @@ namespace SMB3TwitchBot
         }
     }
 
+    public class TwitchMessage
+    {
+        public string badgeInfo = "";
+        public string badges = "";
+        public string clientNonce = "";
+        public string color = "";
+        public string displayName = "";
+        public string emotes = "";
+        public bool firstMsg = false;
+        public string flags = "";
+        public string ID = "";
+        public bool mod = false;
+        public bool returningChatter = false;
+        public string roomID = "";
+        public bool subscriber = false;
+        public string tmiSentTs = "";
+        public bool turbo = false;
+        public string userID = "";
+        public string userType = "";
 
+        public string msg = "";
+        public string command = "";
+        public string allArgs = "";
+        public string[] args;
 
+        public TwitchMessage() { }
+        public TwitchMessage(string[] strings, string msgText)
+        {
+            this.badgeInfo = strings[0];
+            this.badges = strings[1];
+            this.clientNonce = strings[2];
+            this.color = strings[3];
+            this.displayName = strings[4];
+            this.emotes = strings[5];
+            this.firstMsg = strings[6] == "0"? false : true;
+            this.flags = strings[7];
+            this.ID = strings[8];
+            this.mod = strings[9] == "0" ? false : true;
+            this.returningChatter = strings[10] == "0" ? false : true;
+            this.roomID = strings[11];
+            this.subscriber = strings[12] == "0" ? false : true;
+            this.tmiSentTs = strings[13];
+            this.turbo = strings[14] == "0" ? false : true;
+            this.userID = strings[15];
+            this.userType = strings[16];
 
+            this.msg = msgText;
+
+            string[] split = msgText.Split(' ');
+            this.command = split[0];
+            this.args = split.Skip(1).ToArray();
+            this.allArgs = msgText.Split(' ', 2)[1];
+        }
+    }
 
     public abstract class TwitchCommand
     {
         public string name;
-
         public TwitchCommand(string name)
         {
             this.name = name;
         }
-
-
-        public virtual void ProcessOptions(string user, string[] args)
+        public virtual void ProcessOptions(TwitchMessage message)
         {
-            Console.WriteLine($"COMMAND {name} by {user}");
+            Console.WriteLine($"COMMAND {name} by {message}");
         }
     }
 
     public class HelpCommand : TwitchCommand
     {
-        string text = "'length <number>' to change hair length.    'speed <number>' to change hair speed.    'color <color>' to change hair color";
+        string text = "";
 
         public HelpCommand(string name) : base(name) { }
 
-        public override void ProcessOptions(string user, string[] args)
+        public override void ProcessOptions(TwitchMessage message)
         {
-            base.ProcessOptions(user, args);
-            Program.SendTwitchMessage(user, text);
+            base.ProcessOptions(message);
+            Program.SendTwitchMessage(message.ID, text);
         }
     }
 
@@ -221,10 +273,10 @@ namespace SMB3TwitchBot
     {
         public ShowLuaTextCommand(string name) : base(name) { }
 
-        public override void ProcessOptions(string user, string[] args)
+        public override void ProcessOptions(TwitchMessage message)
         {
-            base.ProcessOptions(user, args);
-            Program.SendLuaDisplayMessage(user, args[0]);
+            base.ProcessOptions(message);
+            Program.SendLuaDisplayMessage(message.ID, message.args[0]);
         }
     }
 }
