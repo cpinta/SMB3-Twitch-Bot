@@ -149,6 +149,10 @@ namespace SMB3TwitchBot
                                 {
                                     commands[command[0]].ProcessOptions(message);
                                 }
+                                else
+                                {
+                                    SendLuaDisplayMessage(message.displayName, message.msg);
+                                }
                             }
                         }
                     }

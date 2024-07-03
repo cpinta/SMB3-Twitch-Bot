@@ -1,4 +1,4 @@
-local cmdPath = "D:/_/..Projects/.Edits/.Stream/SMB3/script/CSharpBot/SMB3Bot/luaCMD.txt";
+
 local socket = require("socket.core");
 
 local readFrame = false
